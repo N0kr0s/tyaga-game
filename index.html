@@ -1,219 +1,679 @@
 <!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>TYAGA</title>
-		<style>
-html, body, #canvas {
-	margin: 0;
-	padding: 0;
-	border: 0;
-}
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    >
 
-body {
-	color: white;
-	background-color: black;
-	overflow: hidden;
-	touch-action: none;
-}
+    <title>TYAGA</title>
 
-#canvas {
-	display: block;
-}
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-#canvas:focus {
-	outline: none;
-}
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+        }
 
-#status, #status-splash, #status-progress {
-	position: absolute;
-	left: 0;
-	right: 0;
-}
+        body {
+            overflow: hidden;
+            background: #090c0f;
+            touch-action: none;
 
-#status, #status-splash {
-	top: 0;
-	bottom: 0;
-}
+            font-family:
+                "Trebuchet MS",
+                "Arial Narrow",
+                Arial,
+                sans-serif;
+        }
 
-#status {
-	background-color: #242424;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	visibility: hidden;
-}
+        /* ===========================
+           GODOT CANVAS
+        =========================== */
 
-#status-splash {
-	max-height: 100%;
-	max-width: 100%;
-	margin: auto;
-}
+        #canvas {
+            position: absolute;
+            inset: 0;
 
-#status-splash.show-image--false {
-	display: none;
-}
+            width: 100%;
+            height: 100%;
 
-#status-splash.fullsize--true {
-	height: 100%;
-	width: 100%;
-	object-fit: contain;
-}
+            display: block;
+            border: 0;
+            outline: none;
+        }
 
-#status-splash.use-filter--false {
-	image-rendering: pixelated;
-}
+        #canvas:focus {
+            outline: none;
+        }
 
-#status-progress, #status-notice {
-	display: none;
-}
+        /* ===========================
+           LOADER OVERLAY
+        =========================== */
 
-#status-progress {
-	bottom: 10%;
-	width: 50%;
-	margin: 0 auto;
-}
+        #loader {
+            position: fixed;
+            inset: 0;
 
-#status-notice {
-	background-color: #5b3943;
-	border-radius: 0.5rem;
-	border: 1px solid #9b3943;
-	color: #e0e0e0;
-	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
-	line-height: 1.3;
-	margin: 0 2rem;
-	overflow: hidden;
-	padding: 1rem;
-	text-align: center;
-	z-index: 1;
-}
-		</style>
-		<link id="-gd-engine-icon" rel="icon" type="image/png" href="TYAGA.icon.png" />
+            z-index: 1000;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            overflow: hidden;
+
+            background: #090c0f;
+
+            opacity: 1;
+            visibility: visible;
+
+            transition:
+                opacity 260ms ease,
+                visibility 260ms ease;
+        }
+
+        #loader.is-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* ===========================
+           ЭКРАН
+        =========================== */
+
+        .screen {
+            position: relative;
+
+            width: 100%;
+            height: 100dvh;
+            min-height: 100vh;
+
+            overflow: hidden;
+
+            isolation: isolate;
+
+            color: #f5f0e9;
+        }
+
+        /* ===========================
+           ФОН
+        =========================== */
+
+        .background {
+            position: absolute;
+            inset: 0;
+
+            /*
+               Godot сам заменит TYAGA.png на изображение,
+               заданное в Project Settings -> Application -> Boot Splash -> Image.
+            */
+            background-image: url("TYAGA.png");
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+
+            z-index: -2;
+        }
+
+        .screen::after {
+            content: "";
+
+            position: absolute;
+            inset: 0;
+
+            background:
+                linear-gradient(
+                    to bottom,
+                    rgba(0, 0, 0, 0.12) 0%,
+                    rgba(0, 0, 0, 0.00) 35%,
+                    rgba(0, 0, 0, 0.00) 62%,
+                    rgba(0, 0, 0, 0.30) 100%
+                );
+
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* ===========================
+           ЛОГО
+        =========================== */
+
+        .brand {
+            position: absolute;
+
+            top: max(
+                5vh,
+                calc(env(safe-area-inset-top) + 20px)
+            );
+
+            left: 50%;
+            transform: translateX(-50%);
+
+            width: 85%;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            color: #f5f0e9;
+
+            text-shadow:
+                0 3px 0 rgba(0, 0, 0, 0.95),
+                0 5px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .logo-wrap {
+            position: relative;
+        }
+
+        .logo {
+            font-family:
+                "Segoe Print",
+                "Comic Sans MS",
+                "Trebuchet MS",
+                sans-serif;
+
+            font-size: clamp(50px, 15vw, 86px);
+            font-weight: 900;
+
+            line-height: 0.9;
+            letter-spacing: -0.075em;
+
+            transform: rotate(-1deg);
+        }
+
+        .logo-line {
+            width: 57%;
+            height: 4px;
+
+            margin-top: 12px;
+            margin-bottom: 6px;
+
+            border-radius: 10px;
+
+            background: #f5f0e9;
+
+            transform: rotate(-1deg);
+
+            box-shadow:
+                0 2px 0 rgba(0, 0, 0, 0.7);
+        }
+
+        .subtitle {
+            font-family:
+                "Segoe Print",
+                "Comic Sans MS",
+                sans-serif;
+
+            font-size: clamp(13px, 3.5vw, 19px);
+            font-weight: 900;
+
+            letter-spacing: 0.12em;
+
+            transform: rotate(-1deg);
+        }
+
+        /* ===========================
+           ЗАГРУЗКА
+        =========================== */
+
+        .loading-ui {
+            position: absolute;
+
+            left: 50%;
+
+            bottom:
+                calc(
+                    8.5vh +
+                    env(safe-area-inset-bottom)
+                );
+
+            transform: translateX(-50%);
+
+            width: min(82%, 390px);
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ===========================
+           PROGRESS BAR
+        =========================== */
+
+        .progress-shell {
+            width: 100%;
+            height: 18px;
+
+            padding: 3px;
+
+            background: rgba(10, 13, 16, 0.88);
+
+            border: 2px solid #ece8df;
+            border-radius: 8px;
+
+            box-shadow:
+                0 2px 0 rgba(0, 0, 0, 0.8),
+                0 5px 15px rgba(0, 0, 0, 0.35);
+
+            overflow: hidden;
+
+            transform: rotate(-0.15deg);
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+
+            border-radius: 4px;
+
+            background:
+                linear-gradient(
+                    to bottom,
+                    #4eb9f0,
+                    #258bc6
+                );
+
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.35);
+
+            transition: width 220ms ease;
+        }
+
+        .progress-fill.is-indeterminate {
+            width: 35%;
+
+            animation:
+                indeterminate-progress
+                1.05s
+                ease-in-out
+                infinite;
+        }
+
+        @keyframes indeterminate-progress {
+            0% {
+                transform: translateX(-120%);
+            }
+
+            50% {
+                transform: translateX(95%);
+            }
+
+            100% {
+                transform: translateX(310%);
+            }
+        }
+
+        /* ===========================
+           ТЕКСТ ЗАГРУЗКИ
+        =========================== */
+
+        .loading-row {
+            width: 100%;
+
+            margin-top: 10px;
+
+            display: flex;
+            justify-content: center;
+            align-items: baseline;
+
+            gap: 9px;
+        }
+
+        .loading-text {
+            font-size: clamp(14px, 4vw, 19px);
+            font-weight: 900;
+
+            letter-spacing: 0.035em;
+
+            text-shadow:
+                0 2px 0 #000,
+                0 3px 8px rgba(0, 0, 0, 0.75);
+        }
+
+        .loading-percent {
+            min-width: 45px;
+
+            font-size: clamp(14px, 4vw, 19px);
+            font-weight: 900;
+
+            color: #6dc9f5;
+
+            text-shadow:
+                0 2px 0 #000,
+                0 3px 8px rgba(0, 0, 0, 0.75);
+        }
+
+        /* ===========================
+           СОВЕТ
+        =========================== */
+
+        .tip {
+            margin-top: 13px;
+
+            text-align: center;
+
+            font-family:
+                "Segoe Print",
+                "Comic Sans MS",
+                sans-serif;
+
+            font-size: clamp(11px, 3vw, 14px);
+            line-height: 1.3;
+
+            color: rgba(245, 240, 233, 0.66);
+
+            text-shadow:
+                0 2px 4px #000;
+        }
+
+        /* ===========================
+           ОШИБКА ЗАПУСКА
+        =========================== */
+
+        .error-box {
+            display: none;
+
+            width: min(86%, 430px);
+            margin-top: 16px;
+            padding: 12px 14px;
+
+            border: 1px solid rgba(255, 130, 130, 0.55);
+            border-radius: 10px;
+
+            background: rgba(35, 8, 10, 0.88);
+
+            color: #ffd9d9;
+
+            font-family:
+                Arial,
+                sans-serif;
+
+            font-size: 12px;
+            line-height: 1.35;
+
+            text-align: center;
+
+            white-space: pre-wrap;
+        }
+
+        .error-box.is-visible {
+            display: block;
+        }
+
+        /* ===========================
+           МАЛЕНЬКИЕ ТЕЛЕФОНЫ
+        =========================== */
+
+        @media (max-height: 700px) {
+            .brand {
+                top: 3vh;
+            }
+
+            .logo {
+                font-size: clamp(40px, 13vw, 62px);
+            }
+
+            .loading-ui {
+                bottom:
+                    calc(
+                        6vh +
+                        env(safe-area-inset-bottom)
+                    );
+            }
+
+            .tip {
+                margin-top: 8px;
+            }
+        }
+
+        /* ===========================
+           ПРОСМОТР НА ПК
+        =========================== */
+
+        @media (min-width: 700px) {
+            #loader {
+                background:
+                    radial-gradient(
+                        circle,
+                        #24282c 0%,
+                        #090b0d 70%
+                    );
+            }
+
+            .screen {
+                /*
+                    landscape2 ≈ 941 / 1672 ≈ 0.563
+                */
+
+                width: min(
+                    470px,
+                    calc(100vh * 0.563)
+                );
+
+                height: min(
+                    100vh,
+                    calc(100vw / 0.563)
+                );
+
+                min-height: 0;
+                max-height: 900px;
+
+                border-radius: 27px;
+
+                box-shadow:
+                    0 0 0 4px #050607,
+                    0 20px 70px rgba(0, 0, 0, 0.75);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #loader,
+            .progress-fill {
+                transition: none;
+            }
+
+            .progress-fill.is-indeterminate {
+                animation: none;
+            }
+        }
+    </style>
+
+    <link id="-gd-engine-icon" rel="icon" type="image/png" href="TYAGA.icon.png" />
 <link rel="apple-touch-icon" href="TYAGA.apple-touch-icon.png"/>
 
-	</head>
-	<body>
-		<canvas id="canvas">
-			Your browser does not support the canvas tag.
-		</canvas>
+</head>
 
-		<noscript>
-			Your browser does not support JavaScript.
-		</noscript>
+<body>
+    <canvas id="canvas">
+        Ваш браузер не поддерживает HTML5 canvas.
+    </canvas>
 
-		<div id="status">
-			<img id="status-splash" class="show-image--false fullsize--true use-filter--true" src="TYAGA.png" alt="">
-			<progress id="status-progress"></progress>
-			<div id="status-notice"></div>
-		</div>
+    <noscript>
+        Для запуска TYAGA нужен JavaScript.
+    </noscript>
 
-		<script src="TYAGA.js"></script>
-		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"TYAGA","experimentalVK":false,"fileSizes":{"TYAGA.pck":29324,"TYAGA.wasm":37902138},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
-const GODOT_THREADS_ENABLED = false;
-const engine = new Engine(GODOT_CONFIG);
+    <div id="loader">
+        <main class="screen">
+            <div class="background"></div>
 
-(function () {
-	const statusOverlay = document.getElementById('status');
-	const statusProgress = document.getElementById('status-progress');
-	const statusNotice = document.getElementById('status-notice');
+            <header class="brand">
+                <div class="logo-wrap">
+                    <div class="logo">TYAGA</div>
+                </div>
 
-	let initializing = true;
-	let statusMode = '';
+                <div class="logo-line"></div>
 
-	function setStatusMode(mode) {
-		if (statusMode === mode || !initializing) {
-			return;
-		}
-		if (mode === 'hidden') {
-			statusOverlay.remove();
-			initializing = false;
-			return;
-		}
-		statusOverlay.style.visibility = 'visible';
-		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
-		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
-		statusMode = mode;
-	}
+                <div class="subtitle">
+                    ВЕЧНО В БЕТЕ
+                </div>
+            </header>
 
-	function setStatusNotice(text) {
-		while (statusNotice.lastChild) {
-			statusNotice.removeChild(statusNotice.lastChild);
-		}
-		const lines = text.split('\n');
-		lines.forEach((line) => {
-			statusNotice.appendChild(document.createTextNode(line));
-			statusNotice.appendChild(document.createElement('br'));
-		});
-	}
+            <section class="loading-ui">
+                <div class="progress-shell">
+                    <div
+                        class="progress-fill"
+                        id="progressFill"
+                    ></div>
+                </div>
 
-	function displayFailureNotice(err) {
-		console.error(err);
-		if (err instanceof Error) {
-			setStatusNotice(err.message);
-		} else if (typeof err === 'string') {
-			setStatusNotice(err);
-		} else {
-			setStatusNotice('An unknown error occurred.');
-		}
-		setStatusMode('notice');
-		initializing = false;
-	}
+                <div class="loading-row">
+                    <span
+                        class="loading-text"
+                        id="loadingText"
+                    >
+                        ЗАГРУЖАЕМ ТЯГУ...
+                    </span>
 
-	const missing = Engine.getMissingFeatures({
-		threads: GODOT_THREADS_ENABLED,
-	});
+                    <span
+                        class="loading-percent"
+                        id="loadingPercent"
+                    >
+                        0%
+                    </span>
+                </div>
 
-	if (missing.length !== 0) {
-		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
-			let serviceWorkerRegistrationPromise;
-			try {
-				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
-			} catch (err) {
-				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
-			}
-			// There's a chance that installing the service worker would fix the issue
-			Promise.race([
-				serviceWorkerRegistrationPromise.then((registration) => {
-					if (registration != null) {
-						return Promise.reject(new Error('Service worker already exists.'));
-					}
-					return registration;
-				}).then(() => engine.installServiceWorker()),
-				// For some reason, `getRegistration()` can stall
-				new Promise((resolve) => {
-					setTimeout(() => resolve(), 2000);
-				}),
-			]).then(() => {
-				// Reload if there was no error.
-				window.location.reload();
-			}).catch((err) => {
-				console.error('Error while registering service worker:', err);
-			});
-		} else {
-			// Display the message as usual
-			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
-			displayFailureNotice(missingMsg + missing.join('\n'));
-		}
-	} else {
-		setStatusMode('progress');
-		engine.startGame({
-			'onProgress': function (current, total) {
-				if (current > 0 && total > 0) {
-					statusProgress.value = current;
-					statusProgress.max = total;
-				} else {
-					statusProgress.removeAttribute('value');
-					statusProgress.removeAttribute('max');
-				}
-			},
-		}).then(() => {
-			setStatusMode('hidden');
-		}, displayFailureNotice);
-	}
-}());
-		</script>
-	</body>
+                <div class="tip">
+                    Совет: даже маленькие дела<br>
+                    приближают большую тягу.
+                </div>
+
+                <div
+                    class="error-box"
+                    id="errorBox"
+                ></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="TYAGA.js"></script>
+
+    <script>
+        const progressFill =
+            document.getElementById("progressFill");
+
+        const loadingPercent =
+            document.getElementById("loadingPercent");
+
+        const loadingText =
+            document.getElementById("loadingText");
+
+        const errorBox =
+            document.getElementById("errorBox");
+
+        const loader =
+            document.getElementById("loader");
+
+        function setProgress(current, total) {
+            if (current > 0 && total > 0) {
+                const progress =
+                    Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            Math.round(
+                                (current / total) * 100
+                            )
+                        )
+                    );
+
+                progressFill.classList.remove(
+                    "is-indeterminate"
+                );
+
+                progressFill.style.width =
+                    `${progress}%`;
+
+                loadingPercent.textContent =
+                    `${progress}%`;
+
+                if (progress >= 100) {
+                    loadingText.textContent =
+                        "ЗАПУСКАЕМ ТЯГУ...";
+                }
+
+                return;
+            }
+
+            progressFill.style.width = "";
+            progressFill.classList.add(
+                "is-indeterminate"
+            );
+
+            loadingPercent.textContent = "...";
+        }
+
+        function showError(error) {
+            console.error(error);
+
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : String(error);
+
+            loadingText.textContent =
+                "ОШИБКА ЗАПУСКА";
+
+            loadingPercent.textContent = "";
+
+            progressFill.classList.remove(
+                "is-indeterminate"
+            );
+
+            progressFill.style.width = "0%";
+
+            errorBox.textContent = message;
+            errorBox.classList.add(
+                "is-visible"
+            );
+        }
+
+        function hideLoader() {
+            progressFill.classList.remove(
+                "is-indeterminate"
+            );
+
+            progressFill.style.width = "100%";
+            loadingPercent.textContent = "100%";
+            loadingText.textContent =
+                "ЗАПУСКАЕМ ТЯГУ...";
+
+            loader.classList.add(
+                "is-hidden"
+            );
+
+            window.setTimeout(
+                () => {
+                    loader.remove();
+                },
+                300
+            );
+        }
+
+        const engine =
+            new Engine({"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"TYAGA","experimentalVK":false,"fileSizes":{"TYAGA.pck":10718700,"TYAGA.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4});
+
+        engine.startGame({
+            canvas:
+                document.getElementById("canvas"),
+
+            onProgress:
+                setProgress
+        }).then(
+            hideLoader
+        ).catch(
+            showError
+        );
+    </script>
+</body>
 </html>
+
